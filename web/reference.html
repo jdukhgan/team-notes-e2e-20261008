@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Team Notes — design reference</title>
+    <link rel="icon" href="data:," />
+    <script>
+      // Apply the saved theme before first paint to avoid a flash (mirrors applyTheme in components.js).
+      try {
+        const t = localStorage.getItem("team-notes-theme");
+        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+      } catch {}
+    </script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <noscript>Team Notes needs JavaScript enabled.</noscript>
+    <script type="module" src="reference.js"></script>
+  </body>
+</html>
