@@ -39,9 +39,27 @@ let searchTimer;
 let composer;
 let createDraft = {};
 const editDrafts = new Map();
+const narrowLayout = matchMedia('(max-width: 56rem)');
+let editorOpen = false;
+let editorTriggerNoteId = null;
 const shell = AppShell({ title: 'Team Notes', subtitle: 'Harbor Lane product team', headerActions: [ThemeToggle({ value: initTheme() })] });
 const listRegion = shell.querySelector('[data-region="list"]');
 const asideRegion = shell.querySelector('[data-region="aside"]');
+asideRegion.id = 'note-editor';
+const newNoteButton = Button({
+  label: 'New note', icon: 'plus', variant: 'primary',
+  'aria-controls': 'note-editor', 'aria-expanded': 'false',
+  onClick: () => {
+    if (state.saving) return;
+    rememberDraft();
+    state.editing = null;
+    editorTriggerNoteId = null;
+    renderComposer();
+    renderList();
+    openEditor();
+  },
+});
+newNoteButton.classList.add('tn-editor-open');
 const toaster = createToaster(shell.querySelector('[data-region="toasts"]'));
 const actionError = h('div', {});
 const listBody = h('div', {});
@@ -56,7 +74,7 @@ const searchFilter = SearchFilter({
     loadNotes();
   },
 });
-listRegion.append(searchFilter, actionError, listBody);
+listRegion.append(newNoteButton, searchFilter, actionError, listBody);
 document.getElementById('app').replaceChildren(shell);
 
 function renderList() {
@@ -70,7 +88,7 @@ function renderList() {
       loadNotes();
       searchFilter.searchFilter.focus();
     },
-    onCreateFirst: () => composer.composer.focus(),
+    onCreateFirst: () => newNoteButton.click(),
     onEdit: startEdit,
     onArchive: (note) => setArchived(note, true),
     onRestore: (note) => setArchived(note, false),
@@ -108,6 +126,32 @@ function rememberDraft() {
   if (state.editing) editDrafts.set(state.editing.id, values);
   else createDraft = values;
 }
+function syncEditorVisibility() {
+  const visible = !narrowLayout.matches || editorOpen;
+  asideRegion.hidden = !visible;
+  newNoteButton.setAttribute('aria-expanded', String(visible));
+}
+function openEditor() {
+  editorOpen = true;
+  syncEditorVisibility();
+  composer.composer.focus();
+  asideRegion.scrollIntoView({ block: 'nearest' });
+}
+function closeEditor() {
+  if (state.saving) return;
+  rememberDraft();
+  editorOpen = false;
+  syncEditorVisibility();
+  const trigger = editorTriggerNoteId === null ? newNoteButton
+    : listBody.querySelector(`[data-note-id="${editorTriggerNoteId}"] .tn-note-card__actions button`);
+  (trigger || newNoteButton).focus();
+}
+narrowLayout.addEventListener('change', () => {
+  // Resizing must not hide the field the user is currently editing.
+  if (asideRegion.contains(document.activeElement)) editorOpen = true;
+  syncEditorVisibility();
+});
+
 function renderComposer(focus = false) {
   const editing = state.editing;
   composer = NoteComposer({
@@ -125,20 +169,26 @@ function renderComposer(focus = false) {
       renderList();
     },
   });
+  const closeButton = Button({ label: 'Close editor', variant: 'ghost', size: 'sm', icon: 'close', onClick: closeEditor });
+  closeButton.classList.add('tn-editor-close');
   asideRegion.replaceChildren(Panel({
     title: editing ? 'Edit note' : 'New note',
-    actions: editing ? h('span', { class: 'tn-badge tn-badge--accent' }, 'Editing') : null,
+    actions: h('div', { class: 'tn-editor-actions' },
+      editing ? h('span', { class: 'tn-badge tn-badge--accent' }, 'Editing') : null,
+      closeButton),
     children: [composer],
   }));
+  syncEditorVisibility();
   if (focus) composer.composer.focus();
 }
 function startEdit(note) {
   if (state.saving) return;
   rememberDraft();
   state.editing = note;
-  renderComposer(true);
+  editorTriggerNoteId = note.id;
+  renderComposer();
   renderList();
-  asideRegion.scrollIntoView({ block: 'nearest' });
+  openEditor();
 }
 async function save(values) {
   if (state.saving) return;
@@ -157,7 +207,11 @@ async function save(values) {
     else createDraft = { author: note.author };
     state.editing = null;
     state.saving = false;
-    renderComposer(true);
+    renderComposer(!narrowLayout.matches);
+    if (narrowLayout.matches) {
+      editorTriggerNoteId = null;
+      closeEditor();
+    }
     toaster.show({ message: `${editing ? 'Saved' : 'Added'} “${note.title}”.` });
     await loadNotes();
   } catch (error) {
