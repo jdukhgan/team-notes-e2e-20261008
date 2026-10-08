@@ -1,6 +1,7 @@
 async (page) => {
   // Run with the project's installed browser_run_code tool after starting server.py
   // on 127.0.0.1:8765 with a NEW temporary fictional SQLite database.
+  const evidenceDir = '.kandev/evidence/integration-unicode';
   const checks = [];
   const check = (condition, message) => {
     if (!condition) throw new Error(message);
@@ -144,14 +145,60 @@ async (page) => {
   await card('Recovery reminder').waitFor();
   check(await search.inputValue() === '', 'Escape clears search and reloads');
 
+  // Shared Designer validation, visible counters, app validation and real HTTP
+  // must agree for every API field at and above the astral-character boundary.
+  const boundaries = { title: 200, author: 80, body: 20000 };
+  const controls = { title, author, body };
+  for (const [field, limit] of Object.entries(boundaries)) {
+    const result = await page.evaluate(async ({ field, limit, limits }) => {
+      const { validateNote, DEFAULT_LIMITS } = await import('/web/components.js');
+      const baseline = { title: 'Boundary fixture', author: 'Mara Quill', body: 'Fictional boundary check' };
+      const at = { ...baseline, [field]: '😀'.repeat(limit) };
+      const above = { ...baseline, [field]: '😀'.repeat(limit + 1) };
+      const post = async data => {
+        const response = await fetch('/api/notes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+        return { status: response.status, data: await response.json() };
+      };
+      const accepted = await post(at);
+      const rejected = await post(above);
+      if (accepted.data.note) await fetch(`/api/notes/${accepted.data.note.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: '{"archived":true}' });
+      const defaultAt = { ...baseline, [field]: '😀'.repeat(DEFAULT_LIMITS[field]) };
+      const defaultAbove = { ...baseline, [field]: '😀'.repeat(DEFAULT_LIMITS[field] + 1) };
+      return {
+        sharedAt: validateNote(at, limits), sharedAbove: validateNote(above, limits),
+        defaultAt: validateNote(defaultAt), defaultAbove: validateNote(defaultAbove),
+        accepted, rejected,
+      };
+    }, { field, limit, limits: boundaries });
+    check(Object.keys(result.sharedAt).length === 0 && Boolean(result.sharedAbove[field]), `${field}: shared API-limit validation accepts boundary and rejects above`);
+    check(Object.keys(result.defaultAt).length === 0 && Boolean(result.defaultAbove[field]), `${field}: shared default-limit validation accepts boundary and rejects above`);
+    check(result.accepted.status === 201 && result.accepted.data.note[field] === '😀'.repeat(limit) && result.rejected.status === 400, `${field}: real API accepts and preserves boundary, rejects above`);
+    await title.fill('Boundary fixture');
+    await author.fill('Mara Quill');
+    await body.fill('Fictional boundary check');
+    await controls[field].fill('😀'.repeat(limit));
+    const counter = page.locator('.tn-counter').nth(Object.keys(boundaries).indexOf(field));
+    check(await counter.textContent() === `${limit}/${limit}` && await counter.getAttribute('data-over') === 'false', `${field}: boundary counter is accurate and not over limit`);
+    await controls[field].fill('😀'.repeat(limit - 1) + 'xx'); // Within native UTF-16 maxlength, over code-point limit.
+    check(await counter.textContent() === `${limit + 1}/${limit}` && await counter.getAttribute('data-over') === 'true', `${field}: above-boundary counter reports over limit`);
+    const writes = [];
+    const onRequest = request => { if (request.method() === 'POST') writes.push(request.url()); };
+    page.on('request', onRequest);
+    await page.getByRole('button', { name: 'Add note', exact: true }).click();
+    page.off('request', onRequest);
+    check(await controls[field].getAttribute('aria-invalid') === 'true' && writes.length === 0, `${field}: app rejects above boundary before HTTP`);
+    await page.getByRole('button', { name: 'Clear', exact: true }).click();
+  }
+
   // Unicode boundaries use code points to match SQLite API validation.
   await title.fill('🧭'.repeat(200));
-  await author.fill('Mara Quill');
-  await body.fill('Unicode boundary robustness fixture');
+  await author.fill('😀'.repeat(80));
+  await body.fill('😀'.repeat(20000));
+  await page.screenshot({ path: `${evidenceDir}/robustness-counters.png`, fullPage: true });
   await page.getByRole('button', { name: 'Add note', exact: true }).click();
   await wait(async () => await title.inputValue() === '' && await list.getAttribute('aria-busy') === 'false');
-  check(await page.getByRole('heading', { name: '🧭'.repeat(200), exact: true }).count() === 1, '200 Unicode code points accepted consistently with backend');
-  await page.screenshot({ path: '.kandev/evidence/integration/robustness-unicode.png', fullPage: true });
+  check(await page.getByRole('heading', { name: '🧭'.repeat(200), exact: true }).count() === 1, 'All Unicode field boundaries accepted together by app and backend');
+  await page.screenshot({ path: `${evidenceDir}/robustness-unicode.png`, fullPage: true });
   await page.getByRole('article').filter({ has: page.getByRole('heading', { name: '🧭'.repeat(200), exact: true }) }).getByRole('button', { name: 'Archive', exact: true }).click();
   await ready();
   await title.fill('x'.repeat(201));
@@ -182,8 +229,8 @@ async (page) => {
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.waitForTimeout(250); // Capture after Designer theme transitions settle.
       check(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name} ${theme}: no horizontal overflow`);
-      await page.screenshot({ path: `.kandev/evidence/integration/${name}-${theme}.png`, fullPage: true });
+      await page.screenshot({ path: `${evidenceDir}/${name}-${theme}.png`, fullPage: true });
     }
   }
-  return { verdict: 'PASS', checks, pageErrors: errors, noteId: saved.id, screenshots: '.kandev/evidence/integration/' };
+  return { verdict: 'PASS', checks, pageErrors: errors, noteId: saved.id, screenshots: evidenceDir };
 }

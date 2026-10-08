@@ -45,7 +45,7 @@ the project's installed Playwright `browser_run_code_unsafe` tool. It exercises 
 HTTP CRUD/search/archive/restore/undo, preserved drafts, keyboard controls, validation,
 Unicode boundaries, fault recovery, stale responses, theme persistence and six
 viewport/theme captures. It uses fictional fixtures and request interception only
-for error/race tests. Screenshots are written under `.kandev/evidence/integration/`;
+for error/race tests. Screenshots are written under `.kandev/evidence/integration-unicode/`;
 robustness fixtures are captured separately. Stop the server and close the browser
 after testing. The task plan binds results/artifacts to the full tested revision.
 
