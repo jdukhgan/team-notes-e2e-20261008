@@ -48,7 +48,7 @@ class ServerTests(unittest.TestCase):
         response = connection.getresponse()
         content = response.read()
         connection.close()
-        return response.status, json.loads(content) if response.getheader('Content-Type', '').startswith('application/json') else content.decode()
+        return response.status, json.loads(content) if method != 'HEAD' and response.getheader('Content-Type', '').startswith('application/json') else content.decode()
 
     def create(self, **fields):
         status, result = self.request('POST', '/api/notes', {'title': '  Launch plan  ', 'body': '  Fictional\nteam body  ', 'author': '  Mira  ', **fields})
@@ -108,6 +108,36 @@ class ServerTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertEqual(self.request('GET', path)[0], 404)
         self.assertEqual(self.request('HEAD', '/web/app.js')[0], 200)
+
+    def test_static_rejects_in_root_symlink_aliases_and_directories(self):
+        web = self.static / 'web'
+        (web / 'backend.js').symlink_to(self.static / 'server.py')
+        (web / 'hidden.js').symlink_to(self.static / '.secret')
+        (web / 'alias.js').symlink_to(web / 'app.js')
+        (self.static / 'private').mkdir()
+        (self.static / 'private' / 'secret.js').write_text('private contents')
+        (web / 'linked').symlink_to(self.static / 'private', target_is_directory=True)
+        (self.static / 'index.html').unlink()
+        (self.static / 'index.html').symlink_to(self.static / '.secret')
+        for path in ['/web/backend.js', '/web/hidden.js', '/web/alias.js',
+                     '/web/linked/secret.js', '/', '/index.html']:
+            for method in ['GET', 'HEAD']:
+                with self.subTest(method=method, path=path):
+                    status, result = self.request(method, path)
+                    self.assertEqual(status, 404)
+                    if method == 'GET':
+                        self.assertEqual(result, {'error': 'File not found'})
+        self.assertEqual(self.request('GET', '/web/app.js')[0], 200)
+
+    def test_unsupported_api_methods_return_json_and_preserve_notes(self):
+        before = self.request('GET', '/api/notes')[1]
+        for method in ['DELETE', 'PUT', 'OPTIONS', 'TRACE', 'CONNECT', 'CUSTOM']:
+            for path in ['/api/notes/1', '/api/notes', '/api/health', '/api/nope']:
+                with self.subTest(method=method, path=path):
+                    self.assertEqual(self.request(method, path),
+                                     (404, {'error': 'API route not found'}))
+        self.assertEqual(self.request('GET', '/api/notes'), (200, before))
+        self.assertEqual(self.request('GET', '/api/health'), (200, {'ready': True}))
 
 
 if __name__ == '__main__':

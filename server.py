@@ -125,6 +125,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_PATCH(self):
         self.dispatch()
 
+    def __getattr__(self, name):
+        # BaseHTTPRequestHandler otherwise emits HTML 501 for unknown methods.
+        if name.startswith('do_'):
+            return self.dispatch
+        raise AttributeError(name)
+
     def dispatch(self):
         try:
             self.route()
@@ -190,7 +196,14 @@ class Handler(BaseHTTPRequestHandler):
         if not allowed or any(part.startswith('.') for part in parts) or '\\' in decoded or '\x00' in decoded:
             self.reply(404, {'error': 'File not found'})
             return
-        target = (self.server.static_root / relative).resolve()
+        target = self.server.static_root
+        for part in parts:
+            target = target / part
+            # Check every component before resolve erases symlink provenance.
+            if target.is_symlink():
+                self.reply(404, {'error': 'File not found'})
+                return
+        target = target.resolve()
         if not target.is_relative_to(self.server.static_root) or not target.is_file() or target == self.server.db:
             self.reply(404, {'error': 'File not found'})
             return

@@ -60,7 +60,8 @@ created automatically. There is no login, external service or realtime channel.
 Static GET/HEAD serves `/` as `index.html`, `/index.html`, and files beneath
 `/web/` with `.js`, `.css`, `.html`, `.svg`, `.png`, `.jpg`, `.jpeg`, `.ico`,
 `.woff`, `.woff2` extensions. Decoding occurs before validation; dot-prefixed
-path segments, traversal, backslashes, NULs, directory listing, symlink escape,
+path segments, traversal, backslashes, NULs, directory listing, symlinks in any
+path component (including aliases within the static root),
 backend source and private files are rejected with 404. The resolved SQLite
 file itself is never served. The frontend integration must keep browser assets
 under `web/`; no catch-all SPA fallback is provided. Static files send
