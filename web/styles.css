@@ -301,6 +301,8 @@ select {
   grid-template-areas: "list aside";
   gap: var(--space-6);
   align-items: start;
+  /* Keep auto rows at content height; flex:1 must not stretch them apart. */
+  align-content: start;
 }
 
 .tn-main__list {
