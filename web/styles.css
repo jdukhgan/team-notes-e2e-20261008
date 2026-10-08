@@ -322,7 +322,13 @@ select {
   gap: var(--space-4);
 }
 
-/* Tablet & phone: single column, composer above the list. */
+/* The existing editor is a disclosure on narrow screens; closing keeps its DOM/draft. */
+.tn-main__aside[hidden] { display: none; }
+.tn-editor-open { align-self: flex-start; }
+.tn-editor-actions { display: flex; align-items: center; gap: var(--space-2); }
+.tn-button.tn-editor-close { display: none; }
+
+/* Tablet & phone: notes first; the editor occupies the top row only while open. */
 @media (max-width: 56rem) {
   .tn-main {
     grid-template-columns: minmax(0, 1fr);
@@ -336,6 +342,9 @@ select {
   .tn-main__aside {
     position: static;
   }
+
+  .tn-button.tn-editor-close { display: inline-flex; }
+  .tn-main:has(.tn-main__aside[hidden]) { grid-template-areas: "list"; }
 }
 
 @media (max-width: 36rem) {

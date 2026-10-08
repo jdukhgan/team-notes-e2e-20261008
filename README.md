@@ -30,7 +30,9 @@ Title/author are required and trimmed (200/80 Unicode characters); body is requi
 preserved exactly and limited to 20,000 characters. Failed saves keep the draft;
 check the list before retrying after a connection failure because the server may
 have saved it. Switching between note editors keeps unfinished drafts in the current
-page; cancelling an edit discards that edit. Reloading closes unsaved drafts.
+page; cancelling an edit discards that edit. On phone/tablet, New note or Edit opens
+the editor; Close editor keeps its draft and returns focus to the initiating control.
+Saving closes the narrow editor. Reloading closes unsaved drafts.
 Theme preference persists in local browser storage; Auto follows the system theme.
 
 ```sh

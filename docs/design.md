@@ -29,7 +29,7 @@ stays neutral and low-contrast so notes are easy to scan.
 | Width | Layout |
 | --- | --- |
 | > 56rem (≈ 896 px) — desktop | Two columns: list (fluid) + sticky composer panel (24rem) on the right. Max content width 72rem. |
-| ≤ 56rem — tablet | Single column: composer panel first (compact 7.5rem textarea), then search/filter and the list. |
+| ≤ 56rem — tablet | Single column: New note, search/filter and list first. New note or Edit opens the existing compact composer above the list; Close editor preserves the draft and restores focus. |
 | ≤ 36rem — phone | As tablet with 16 px gutters; header subtitle hidden; status filter stretches full width. |
 
 ## Themes
@@ -130,3 +130,7 @@ filter, theme) work locally.
 
 This document approves the visual foundation only. Final visual acceptance of the integrated
 application is a separate inspection of the running app at its own revision.
+
+## Narrow editor interaction
+
+The editor uses the existing Panel, NoteComposer and Button components and tokens. It is an inline disclosure, not a modal: no focus trap or duplicate form. Close editor preserves the current create/edit draft; Clear and Cancel editing retain their explicit discard behavior. Opening focuses Title; closing returns to the initiating Edit or New note button, with New note as fallback if a filtered card disappeared. Theme changes preserve the form; resizing keeps a focused editor open. A successful save closes the narrow editor and returns focus to New note. Desktop retains the two-column editor.
