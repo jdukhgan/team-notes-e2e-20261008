@@ -113,18 +113,27 @@ export function formatTimestamp(iso, { now = new Date(), locale } = {}) {
   return date.toLocaleDateString(locale, { month: "short", day: "numeric", year: sameYear ? undefined : "numeric" });
 }
 
+// Counts Unicode code points (matching the API's Python len()), not UTF-16 code units,
+// so an emoji or other astral character counts as 1.
+export function codePointLength(text) {
+  let count = 0;
+  for (const _ of String(text ?? "")) count += 1;
+  return count;
+}
+
 // Client-side presentation validation only; the API remains the source of truth.
+// Length limits are in code points (see codePointLength).
 export function validateNote(values, limits = DEFAULT_LIMITS) {
   const errors = {};
   const title = (values.title || "").trim();
   const author = (values.author || "").trim();
   const body = values.body || "";
   if (!title) errors.title = "Add a title.";
-  else if (title.length > limits.title) errors.title = `Keep the title under ${limits.title} characters.`;
+  else if (codePointLength(title) > limits.title) errors.title = `Keep the title under ${limits.title} characters.`;
   if (!author) errors.author = "Add who is writing this note.";
-  else if (author.length > limits.author) errors.author = `Keep the author under ${limits.author} characters.`;
+  else if (codePointLength(author) > limits.author) errors.author = `Keep the author under ${limits.author} characters.`;
   if (!body.trim()) errors.body = "Write something in the note.";
-  else if (body.length > limits.body) errors.body = `Keep the note under ${limits.body} characters.`;
+  else if (codePointLength(body) > limits.body) errors.body = `Keep the note under ${limits.body} characters.`;
   return errors;
 }
 
@@ -602,7 +611,7 @@ function Field({ id, label, control, error, hint, counter }) {
 function Counter(control, max) {
   const el = h("span", { class: "tn-counter", "aria-hidden": "true" });
   const update = () => {
-    const length = control.value.length;
+    const length = codePointLength(control.value);
     el.textContent = `${length}/${max}`;
     el.dataset.over = String(length > max);
   };
@@ -628,6 +637,7 @@ export function NoteComposer({
   onCancel,
 } = {}) {
   const prefix = uid("composer");
+  // Native maxlength counts UTF-16 code units, so allow 2 per code point; validateNote enforces the real limit.
   const titleInput = h("input", { class: "tn-input", type: "text", name: "title", autocomplete: "off", value: values.title || "", maxlength: String(limits.title * 2) });
   const authorInput = h("input", { class: "tn-input", type: "text", name: "author", autocomplete: "name", value: values.author || "", maxlength: String(limits.author * 2) });
   const bodyInput = h("textarea", { class: "tn-textarea", name: "body", rows: "6" });

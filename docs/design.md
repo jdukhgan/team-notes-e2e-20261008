@@ -81,8 +81,9 @@ always inserted as text (no `innerHTML`). Class names are prefixed `tn-`.
 | `EmptyState({ icon, title, message, action, tone })` | Placeholder used by `NoteList`; reusable elsewhere. | — |
 | `createToaster(regionEl)` | `.show({ message, actionLabel, onAction, timeout = 5000 }) → dismiss()`. Use the shell’s toast region. Use for confirmations (“Added …”, “Archived …” with Undo). | `onAction()` |
 | `initTheme()`, `applyTheme(pref)`, `getThemePreference()` | Theme helpers (`"system"\|"light"\|"dark"`). Call `initTheme()` once at start-up. | — |
-| `validateNote(values, limits)` | Presentation-level check mirroring the API: title/author trimmed and required, body required (not trimmed), length limits. Returns `{field: message}`. The API remains authoritative; show its `{error}` via `formError`. | — |
-| `DEFAULT_LIMITS` | `{ title: 120, author: 60, body: 5000 }`. If `docs/api.md` documents different limits, pass them as `limits` (do not edit the default per page). | — |
+| `validateNote(values, limits)` | Presentation-level check mirroring the API: title/author trimmed and required, body required (not trimmed), length limits counted in Unicode code points (an emoji counts as 1, matching the API's Python `len`). Returns `{field: message}`. The API remains authoritative; show its `{error}` via `formError`. | — |
+| `DEFAULT_LIMITS` | `{ title: 120, author: 60, body: 5000 }`. If `docs/api.md` documents different limits, pass them as `limits` (do not edit the default per page). Limits are code points; composer counters use the same count, and native `maxlength` on Title/Author is set to 2× the limit (UTF-16 units) so the full code-point boundary can be typed while `validateNote` blocks submission past it. | — |
+| `codePointLength(text)` | Code-point length used by counters and `validateNote`. | — |
 | `h`, `Icon`, `highlight`, `formatTimestamp`, `debounce`, `uid` | Small helpers used by the components. | — |
 
 ### Integration guidance for the Builder (`index.html`, `web/app.js`)
